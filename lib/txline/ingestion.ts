@@ -3,7 +3,7 @@ import {db} from "@/lib/db";
 import {normalizeOdds,oddsFromProbability} from "@/lib/probability";
 import {txline,txLineConfiguration,txLineEndpoints,TxLineFixture,TxLineOdds,TxLineScore,TXLINE_AUTH_ERROR} from "./client";
 
-export type TxLineStatus={mode:"demo"|"live";configured:boolean;baseUrlPresent:boolean;guestJwtPresent:boolean;apiTokenPresent:boolean;apiTokenSource:"TXLINE_API_TOKEN"|"TXLINE_API_KEY fallback"|null;authFlow:"guest-jwt-plus-activated-api-token";lastFetchAt:string|null;endpointUsed:string|null;connectionStatus:"not_configured"|"ready"|"connected"|"error";error?:string};
+export type TxLineStatus={mode:"demo"|"live";configured:boolean;baseUrlPresent:boolean;guestJwtPresent:boolean;apiTokenPresent:boolean;apiTokenSource:"TXLINE_API_TOKEN"|"TXLINE_API_KEY fallback"|null;authFlow:"guest-jwt-plus-activated-api-token";lastFetchAt:string|null;endpointUsed:string;connectionStatus:"demo-mode"|"not_configured"|"ready"|"connected"|"error";message?:string;error?:string};
 type SyncResult={fixturesFetched:number;matchesStored:number;snapshotsStored:number;endpointUsed:string;fetchedAt:string};
 let activeSync:Promise<SyncResult>|null=null;
 
@@ -24,9 +24,11 @@ function txDate(timestamp:number){return new Date(timestamp<1_000_000_000_000?ti
 
 async function record(type:"TXLINE_FETCH"|"SYSTEM",message:string,metadata:Record<string,unknown>){await db.systemLog.create({data:{type,message,metadata:JSON.stringify(metadata)}})}
 export async function getTxLineStatus():Promise<TxLineStatus>{
- const config=txLineConfiguration();const latest=await db.systemLog.findFirst({where:{type:"TXLINE_FETCH"},orderBy:{createdAt:"desc"}});let metadata:Record<string,unknown>={};try{metadata=latest?.metadata?JSON.parse(latest.metadata):{}}catch{}
+ const config=txLineConfiguration();
+ if(config.mode==="demo")return{...config,configured:false,lastFetchAt:null,endpointUsed:txLineEndpoints.fixtures,connectionStatus:"demo-mode",message:"Demo Replay Mode active. Live TxLINE credentials are not configured."};
+ const latest=await db.systemLog.findFirst({where:{type:"TXLINE_FETCH"},orderBy:{createdAt:"desc"}});let metadata:Record<string,unknown>={};try{metadata=latest?.metadata?JSON.parse(latest.metadata):{}}catch{}
  const success=metadata.success===true,error=typeof metadata.error==="string"?metadata.error:undefined;
- const configError=!config.configured?TXLINE_AUTH_ERROR:undefined;return{...config,lastFetchAt:typeof metadata.fetchedAt==="string"?metadata.fetchedAt:null,endpointUsed:typeof metadata.endpointUsed==="string"?metadata.endpointUsed:null,connectionStatus:!config.configured?"not_configured":success?"connected":error?"error":"ready",...((configError||error)?{error:configError||error}:{})};
+ const configError=!config.configured?TXLINE_AUTH_ERROR:undefined;return{...config,lastFetchAt:typeof metadata.fetchedAt==="string"?metadata.fetchedAt:null,endpointUsed:typeof metadata.endpointUsed==="string"?metadata.endpointUsed:txLineEndpoints.fixtures,connectionStatus:!config.configured?"not_configured":success?"connected":error?"error":"ready",...((configError||error)?{error:configError||error}:{})};
 }
 
 async function performSync():Promise<SyncResult>{
