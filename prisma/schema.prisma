@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Match {
+  id              String   @id
+  homeTeam        String
+  awayTeam        String
+  homeScore       Int      @default(0)
+  awayScore       Int      @default(0)
+  minute          Int      @default(0)
+  status          String
+  marketState     String
+  volatilityLevel String
+  latestSignal    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  snapshots       OddsSnapshot[]
+  signals         Signal[]
+  logs            SystemLog[]
+}
+
+model OddsSnapshot {
+  id              String   @id @default(cuid())
+  matchId         String
+  timestamp       DateTime @default(now())
+  minute          Int
+  homeOdds        Float
+  drawOdds        Float
+  awayOdds        Float
+  homeProbability Float
+  drawProbability Float
+  awayProbability Float
+  source          String   @default("demo")
+  createdAt       DateTime @default(now())
+  match           Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+}
+
+model Agent {
+  id           String   @id
+  name         String
+  slug         String   @unique
+  strategyType String
+  description  String
+  riskStyle    String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  signals      Signal[]
+  score        AgentScore?
+  logs         SystemLog[]
+}
+
+model Signal {
+  id          String    @id @default(cuid())
+  matchId     String
+  agentId     String
+  signalType  String
+  outcome     String
+  confidence  Float
+  reasoning   String
+  status      String    @default("Pending")
+  strength    Float
+  createdAt   DateTime  @default(now())
+  evaluatedAt DateTime?
+  match       Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model AgentScore {
+  id                    String   @id @default(cuid())
+  agentId               String   @unique
+  score                 Float
+  accuracy              Float
+  signalsGenerated      Int
+  confidenceCalibration Float
+  reactionSpeed         Float
+  consistency           Float
+  volatilityAwareness   Float
+  updatedAt             DateTime @updatedAt
+  agent                 Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  matchId   String?
+  agentId   String?
+  type      String
+  message   String
+  metadata  String?
+  createdAt DateTime @default(now())
+  match     Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+}

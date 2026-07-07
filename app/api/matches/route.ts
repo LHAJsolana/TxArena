@@ -1,0 +1,3 @@
+import {db} from "@/lib/db";import {env} from "@/lib/env";import {internalError,noStoreJson} from "@/lib/api";
+export const dynamic="force-dynamic";
+export async function GET(){try{const data=await db.match.findMany({include:{snapshots:{orderBy:{timestamp:"desc"},take:12},signals:{include:{agent:true},orderBy:{createdAt:"desc"},take:1},_count:{select:{signals:true}}},orderBy:{id:"asc"}});const live=Boolean(env.mode==="live"&&env.txlineBaseUrl&&env.txlineGuestJwt&&env.txlineApiToken);return noStoreJson({success:true,data,meta:{totalSignals:await db.signal.count(),mode:live?"live":"demo"}})}catch(error){return internalError(error,"Matches unavailable")}}

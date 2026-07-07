@@ -1,0 +1,3 @@
+import {env} from "@/lib/env";import {syncTxLine} from "@/lib/txline/ingestion";import {internalError,noStoreJson} from "@/lib/api";
+let lastRequest=0;
+export async function POST(request:Request){const token=request.headers.get("authorization")?.replace(/^Bearer\s+/i,"");if(env.cycleToken&&token!==env.cycleToken)return noStoreJson({success:false,error:"Unauthorized"},{status:401});if(Date.now()-lastRequest<5000)return noStoreJson({success:false,error:"Please wait before syncing again"},{status:429,headers:{"Retry-After":"5"}});try{lastRequest=Date.now();return noStoreJson({success:true,data:await syncTxLine()})}catch(error){return internalError(error,error instanceof Error?error.message:"TxLINE sync failed")}}
